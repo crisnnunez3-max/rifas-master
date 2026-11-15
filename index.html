@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RIFAS MASTER | Administración</title>
+<style>
+:root{--green:#16a34a;--dark:#101713;--panel:#18231c;--muted:#9ca3af;--white:#f8fafc;--line:#29372e;--red:#dc5454;--amber:#d99a2b}
+*{box-sizing:border-box}body{margin:0;background:#0c110e;color:var(--white);font:15px Arial,sans-serif}
+header{padding:20px 5%;background:#101713;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.brand{font-size:25px;font-weight:900;letter-spacing:1px}.brand span{color:#35d477}
+main{max-width:1200px;margin:28px auto;padding:0 18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+h1,h2{margin:0 0 16px}h1{font-size:25px}.muted{color:var(--muted)}label{display:block;margin:12px 0 6px;color:#d1d5db;font-size:13px}
+input,select,button{font:inherit;border-radius:9px;padding:12px;border:1px solid #35443a;background:#0e1711;color:white;width:100%}
+button{background:var(--green);border:0;font-weight:700;cursor:pointer}button.secondary{background:#29372e}button.danger{background:#9e3030}button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:12px;align-items:end}.row>*{flex:1}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+.stat{background:#111b14;border:1px solid var(--line);border-radius:12px;padding:16px}.stat b{display:block;font-size:24px;margin-top:7px}.green{color:#35d477}
+.toolbar{display:grid;grid-template-columns:1fr 180px 150px;gap:10px;margin:18px 0}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 9px;border-bottom:1px solid var(--line)}th{color:#aab7ae;font-size:12px;text-transform:uppercase}
+.pill{padding:5px 8px;border-radius:20px;font-size:12px;background:#29372e}.pill.paid{background:#14532d}.pill.pending{background:#704c13}
+.actions{display:flex;gap:7px}.actions button{width:auto;padding:8px 10px;font-size:12px}
+.hidden{display:none!important}.notice{padding:12px;border-radius:9px;background:#2b2414;color:#f5d58a;margin:12px 0;font-size:13px}
+#login{max-width:420px;margin:8vh auto}.error{color:#ff8b8b;margin-top:10px;white-space:pre-wrap}
+@media(max-width:750px){.stats{grid-template-columns:repeat(2,1fr)}.toolbar{grid-template-columns:1fr}.row{display:block}table{font-size:13px}.panel{padding:15px}.brand{font-size:21px}}
+</style>
+</head>
+<body>
+<header><div class="brand">RIFAS <span>MASTER</span></div><div class="muted">ADMINISTRACIÓN PRIVADA</div></header>
+<main>
+<section id="login" class="panel">
+<h1>Iniciar sesión</h1><p class="muted">Acceso exclusivo del administrador.</p>
+<form id="loginForm">
+<label>Correo electrónico</label><input id="email" type="email" autocomplete="username" required>
+<label>Contraseña</label><input id="password" type="password" autocomplete="current-password" required>
+<button style="margin-top:16px">Entrar</button>
+</form><div id="loginError" class="error"></div>
+</section>
+
+<section id="app" class="hidden">
+<div class="row" style="justify-content:space-between;align-items:center">
+<div><h1>Panel de control</h1><div class="muted">5,000 números · RD$100 por número</div></div>
+<button id="logout" class="secondary" style="max-width:150px">Cerrar sesión</button>
+</div>
+<div class="stats">
+<div class="stat"><span class="muted">Números totales</span><b>5,000</b></div>
+<div class="stat"><span class="muted">Registrados</span><b id="registered">0</b></div>
+<div class="stat"><span class="muted">Pagados</span><b id="paidCount" class="green">0</b></div>
+<div class="stat"><span class="muted">Recaudado</span><b id="collected" class="green">RD$0</b></div>
+</div>
+<div class="panel">
+<h2>Registrar comprador</h2>
+<form id="ticketForm">
+<div class="row">
+<div><label>Número (1 al 5000)</label><input id="number" type="number" min="1" max="5000" required placeholder="Ej. 125"></div>
+<div><label>Nombre del comprador</label><input id="buyer" required maxlength="100" placeholder="Nombre completo"></div>
+<div><label>Teléfono</label><input id="phone" required maxlength="30" placeholder="809..."></div>
+</div>
+<div class="row" style="margin-top:8px">
+<div><label>Estado del pago</label><select id="payment"><option value="pending">Pendiente</option><option value="paid">Pagado</option></select></div>
+<div><button id="saveTicket">Guardar número · RD$100</button></div>
+</div><div id="formError" class="error"></div>
+</form>
+</div>
+<div class="panel" style="margin-top:18px">
+<h2>Control de números</h2>
+<div class="toolbar">
+<input id="search" placeholder="Buscar número, comprador o teléfono">
+<select id="filter"><option value="all">Todos</option><option value="registered">Registrados</option><option value="paid">Pagados</option><option value="pending">Pendientes</option><option value="available">Disponibles</option></select>
+<button id="refresh" class="secondary">Actualizar</button>
+</div>
+<div style="overflow-x:auto"><table><thead><tr><th>Número</th><th>Comprador</th><th>Teléfono</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="tickets"></tbody></table></div>
+<p id="empty" class="muted">Cargando registros...</p>
+</div>
+</section>
+</main>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// PASO OBLIGATORIO: pega aquí la URL y la clave publishable/anon de TU proyecto Supabase.
+const SUPABASE_URL = 'PEGA_AQUI_TU_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'PEGA_AQUI_TU_SUPABASE_ANON_KEY';
+
+const loginView=document.querySelector('#login'), app=document.querySelector('#app');
+const loginError=document.querySelector('#loginError'), formError=document.querySelector('#formError');
+let db=null, rows=[];
+const money=n=>'RD$'+Number(n).toLocaleString('es-DO');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function configReady(){return SUPABASE_URL.startsWith('https://')&&!SUPABASE_URL.includes('PEGA_AQUI')&&SUPABASE_ANON_KEY.length>20&&!SUPABASE_ANON_KEY.includes('PEGA_AQUI')}
+function showApp(on){loginView.classList.toggle('hidden',on);app.classList.toggle('hidden',!on)}
+async function start(){
+ if(!configReady()){loginError.textContent='Falta configurar Supabase. Abre index.html y reemplaza SUPABASE_URL y SUPABASE_ANON_KEY con los datos de tu proyecto.';return}
+ db=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+ const {data:{session}}=await db.auth.getSession();
+ if(session){showApp(true);await loadRows()}else showApp(false);
+ db.auth.onAuthStateChange(async(_event,session)=>{showApp(!!session);if(session)await loadRows()});
+}
+document.querySelector('#loginForm').addEventListener('submit',async e=>{
+ e.preventDefault();loginError.textContent='';
+ if(!db){await start();if(!db)return}
+ const {error}=await db.auth.signInWithPassword({email:document.querySelector('#email').value.trim(),password:document.querySelector('#password').value});
+ if(error)loginError.textContent=error.message;
+});
+document.querySelector('#logout').onclick=async()=>{await db.auth.signOut();showApp(false)};
+document.querySelector('#ticketForm').addEventListener('submit',async e=>{
+ e.preventDefault();formError.textContent='';
+ const n=Number(document.querySelector('#number').value);
+ if(!Number.isInteger(n)||n<1||n>5000){formError.textContent='El número debe estar entre 1 y 5000.';return}
+ const payload={number:n,buyer_name:document.querySelector('#buyer').value.trim(),phone:document.querySelector('#phone').value.trim(),payment_status:document.querySelector('#payment').value,price:100};
+ const {error}=await db.from('tickets').insert(payload);
+ if(error){formError.textContent=error.code==='23505'?'Ese número ya está registrado.':error.message;return}
+ e.target.reset();document.querySelector('#payment').value='pending';await loadRows();
+});
+async function loadRows(){
+ const {data,error}=await db.from('tickets').select('*').order('number');
+ if(error){formError.textContent=error.message;return}
+ rows=data||[];render();
+}
+function render(){
+ const q=document.querySelector('#search').value.toLowerCase(),f=document.querySelector('#filter').value;
+ const paid=rows.filter(r=>r.payment_status==='paid').length;
+ document.querySelector('#registered').textContent=rows.length.toLocaleString('es-DO');
+ document.querySelector('#paidCount').textContent=paid.toLocaleString('es-DO');
+ document.querySelector('#collected').textContent=money(paid*100);
+ const list=rows.filter(r=>{
+  const match=[r.number,r.buyer_name,r.phone].some(v=>String(v??'').toLowerCase().includes(q));
+  return match&&(f==='all'||f==='registered'||r.payment_status===f);
+ });
+ document.querySelector('#tickets').innerHTML=list.map(r=>`<tr><td><b>${r.number}</b></td><td>${esc(r.buyer_name)}</td><td>${esc(r.phone)}</td><td><span class="pill ${r.payment_status}">${r.payment_status==='paid'?'Pagado':'Pendiente'}</span></td><td><div class="actions"><button class="secondary" data-toggle="${r.number}">${r.payment_status==='paid'?'Pendiente':'Pagado'}</button><button class="danger" data-delete="${r.number}">Borrar</button></div></td></tr>`).join('');
+ document.querySelector('#empty').textContent=list.length?'':'No hay registros para mostrar.';
+ document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>togglePayment(Number(b.dataset.toggle)));
+ document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteTicket(Number(b.dataset.delete)));
+}
+async function togglePayment(n){const r=rows.find(x=>x.number===n);const {error}=await db.from('tickets').update({payment_status:r.payment_status==='paid'?'pending':'paid'}).eq('number',n);if(error)alert(error.message);else await loadRows()}
+async function deleteTicket(n){if(!confirm('¿Seguro que deseas borrar el registro del número '+n+'?'))return;const {error}=await db.from('tickets').delete().eq('number',n);if(error)alert(error.message);else await loadRows()}
+document.querySelector('#search').addEventListener('input',render);
+document.querySelector('#filter').addEventListener('change',render);
+document.querySelector('#refresh').onclick=loadRows;
+start();
+</script>
+</body></html>
