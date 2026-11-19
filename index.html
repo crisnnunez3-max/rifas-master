@@ -105,11 +105,11 @@ input,select{background:#0b1710;border-color:#385240}input:focus,select:focus{ou
 <div id="editOverlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="editTitle" style="position:fixed;inset:0;background:#000b;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px">
  <form id="editForm" class="panel" style="width:min(100%,480px);max-height:90vh;overflow:auto;margin:0">
   <h2 id="editTitle">Editar participante</h2>
-  <p class="muted" id="editNumbers"></p>
+  <label for="editNumbersInput">Números del participante (separados por comas)</label><input id="editNumbersInput" required placeholder="0200, 0299" inputmode="text"><p class="muted">Puedes agregar o quitar números. Solo se permiten números disponibles entre 0000 y 5000.</p>
   <label for="editName">Nombre</label><input id="editName" required maxlength="100">
   <label for="editPhone">Teléfono / WhatsApp</label><input id="editPhone" required maxlength="30">
   <label for="editStatus">Estado de pago de todos sus números</label><select id="editStatus"><option value="paid">Pagado</option><option value="pending">Pendiente</option><option value="keep">Conservar estados actuales</option></select>
-  <p class="muted">Los números asignados no cambian al editar estos datos.</p>
+  <p class="muted">Los cambios se guardan juntos en Supabase para evitar registros incompletos.</p>
   <div class="actions" style="margin-top:16px"><button type="submit">Guardar cambios</button><button id="cancelEdit" class="secondary" type="button">Cancelar</button></div>
   <div id="editError" class="error" role="alert"></div>
  </form>
@@ -238,26 +238,39 @@ function openEdit(g){
  document.querySelector('#editName').value=g.name||'';
  document.querySelector('#editPhone').value=g.phone||'';
  document.querySelector('#editStatus').value=g.items.every(r=>r.payment_status==='paid')?'paid':g.items.every(r=>r.payment_status==='pending')?'pending':'keep';
- document.querySelector('#editNumbers').textContent='Números: '+g.items.map(r=>pad(Number(r.number))).join(', ');
+ document.querySelector('#editNumbersInput').value=g.items.map(r=>pad(Number(r.number))).join(', ');
  document.querySelector('#editError').textContent='';
  document.querySelector('#editOverlay').classList.remove('hidden');
  document.querySelector('#editName').focus();
 }
 function closeEdit(){document.querySelector('#editOverlay').classList.add('hidden');editing=null}
 document.querySelector('#cancelEdit').onclick=closeEdit;
+function parseEditedNumbers(value){
+ const parts=value.split(',').map(v=>v.trim());
+ if(parts.some(v=>!/^\d{1,4}$/.test(v)))throw Error('Escribe números separados por comas, por ejemplo: 0200, 0299.');
+ const nums=parts.map(Number);
+ if(!nums.length||nums.some(n=>n<0||n>5000))throw Error('Solo se permiten números del 0000 al 5000.');
+ if(new Set(nums).size!==nums.length)throw Error('Hay números repetidos en la selección.');
+ return nums.sort((a,b)=>a-b);
+}
 document.querySelector('#editForm').addEventListener('submit',async e=>{
  e.preventDefault();if(!editing||!db)return;
  const name=document.querySelector('#editName').value.trim(),phone=document.querySelector('#editPhone').value.trim();
  const status=document.querySelector('#editStatus').value;
  const errorBox=document.querySelector('#editError'),submit=e.target.querySelector('[type=submit]');
  if(!name||!phone){errorBox.textContent='Completa nombre y teléfono.';return}
- // Actualiza solo los números que pertenecían a este participante al abrir el editor.
- const nums=editing.items.map(r=>Number(r.number));
+ let next;
+ try{next=parseEditedNumbers(document.querySelector('#editNumbersInput').value)}catch(err){errorBox.textContent=err.message;return}
+ const previous=editing.items.map(r=>Number(r.number));
+ const own=new Set(previous);
+ const occupied=next.filter(n=>!own.has(n)&&rows.some(r=>Number(r.number)===n));
+ if(occupied.length){errorBox.textContent='Números ya ocupados: '+occupied.map(pad).join(', ');return}
  submit.disabled=true;errorBox.textContent='';
- const patch={buyer_name:name,phone};if(status!=='keep')patch.payment_status=status;
- const {data,error}=await db.from('tickets').update(patch).in('number',nums).select('number');
- if(error){errorBox.textContent='No se pudieron guardar los cambios: '+error.message;submit.disabled=false;return}
- if(!data||data.length!==nums.length){errorBox.textContent='No se pudo confirmar la actualización de todos los números. Revisa los permisos de Supabase y actualiza los registros.';submit.disabled=false;await loadRows();return}
+ // La función de Supabase ejecuta la edición de todos los números en una transacción.
+ const {error}=await db.rpc('edit_participant_numbers',{
+  old_numbers:previous,new_numbers:next,new_name:name,new_phone:phone,new_status:status
+ });
+ if(error){errorBox.textContent='No se pudieron guardar los cambios: '+error.message+'\nSi falta la función edit_participant_numbers, ejecuta primero el archivo supabase-editar-numeros.sql en Supabase.';submit.disabled=false;return}
  submit.disabled=false;closeEdit();await loadRows();
 });
 document.querySelector('#search').addEventListener('input',render);
