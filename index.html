@@ -29,6 +29,20 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 8px
 .actions{display:flex;gap:7px}.actions button{width:auto;padding:8px 10px;font-size:12px}
 @media(max-width:850px){.number-grid{grid-template-columns:repeat(7,minmax(0,1fr))}.stats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){header{padding:14px}.brand{font-size:20px}main{padding:0 10px}.panel{padding:13px}.number-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}.num{padding:10px 1px;font-size:11px}.toolbar{grid-template-columns:1fr}.row{display:block}.row>*{margin-bottom:8px}.stats{gap:7px}.stat{padding:11px}.stat b{font-size:20px}.selection-actions{width:100%}.selection-actions button{flex:1}}
+
+/* RIFAS MASTER · edición verde y blanco */
+:root{--green:#27e779;--dark:#080e0b;--panel:#111c16;--muted:#a6b6ac;--line:#294334}
+body{background:radial-gradient(ellipse at 85% 0%,#123c25 0%,#0b140e 36%,#080e0b 75%);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5}
+header{background:rgba(10,20,14,.95);padding:24px 5%}.brand{font-size:clamp(25px,3vw,37px);font-weight:900;letter-spacing:-1.5px}.brand span,.green{color:#27e779}
+main{max-width:1440px}h1{font-size:clamp(32px,4vw,58px);letter-spacing:-2px;font-weight:900;line-height:1.08}h2{font-size:23px;letter-spacing:-.6px;font-weight:850}
+.panel{background:linear-gradient(145deg,#15251a,#0e1712);border:1px solid #294334;border-radius:20px;box-shadow:0 10px 32px #0002}
+.stat{background:linear-gradient(135deg,#14281b,#0c1810);border-color:#2a4835;border-radius:17px}.stat b{font-size:clamp(24px,3vw,36px)}
+button{background:#27e779;color:#06170c;border-radius:10px;transition:filter .15s,transform .15s}button:hover:not(:disabled){filter:brightness(1.12)}button:active:not(:disabled){transform:scale(.98)}button.secondary{background:#25382b;color:#f3fff7}button.danger{background:#8f3333;color:white}
+input,select{background:#0b1710;border-color:#385240}input:focus,select:focus{outline:2px solid #27e779;outline-offset:1px}
+.num.paid{background:#145a30}.num.selected{background:#14763e;border-color:#48f99a;outline-color:#f3fff7}
+.wa-btn{background:#1fc866!important;color:#07190e!important;white-space:nowrap}
+.actions{flex-wrap:wrap}.actions button{font-size:12px}.notice{background:#17291b;color:#b5f6c8}
+@media(max-width:560px){h1{letter-spacing:-1px}.brand{font-size:25px}.actions{min-width:180px}}
 </style>
 </head>
 <body>
@@ -62,7 +76,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 8px
 <div class="row">
 <div><label>Nombre del comprador</label><input id="buyer" required maxlength="100" placeholder="Nombre completo"></div>
 <div><label>Teléfono</label><input id="phone" required maxlength="30" placeholder="809..."></div>
-<div><label>Estado del pago</label><select id="payment"><option value="pending">Pendiente</option><option value="paid">Pagado</option></select></div>
+<div><label>Estado del pago</label><select id="payment"><option value="paid" selected>Pagado</option><option value="pending">Pendiente</option></select></div>
 </div>
 <div class="row" style="margin-top:10px"><button id="saveTicket" type="submit">Guardar números seleccionados</button></div>
 <div id="formError" class="error"></div>
@@ -80,14 +94,26 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 8px
 <p id="gridMessage" class="muted">Toca los números disponibles para seleccionarlos.</p>
 </section>
 <section class="panel">
-<h2>Registros de compradores</h2>
+<h2>Registros de compradores</h2><p class="muted">Pulsa WhatsApp para abrir el chat del comprador con su mensaje listo para enviar.</p>
 <div class="toolbar">
 <input id="search" placeholder="Buscar número, comprador o teléfono">
 <select id="filter"><option value="all">Todos</option><option value="paid">Pagados</option><option value="pending">Pendientes</option></select>
 <button id="refresh" class="secondary" type="button">Actualizar</button>
 </div>
-<div style="overflow-x:auto"><table><thead><tr><th>Número</th><th>Comprador</th><th>Teléfono</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="tickets"></tbody></table></div>
+<div style="overflow-x:auto"><table><thead><tr><th>Comprador</th><th>Números</th><th>Teléfono</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="tickets"></tbody></table></div>
 <p id="empty" class="muted">Cargando registros...</p>
+<div id="editOverlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="editTitle" style="position:fixed;inset:0;background:#000b;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px">
+ <form id="editForm" class="panel" style="width:min(100%,480px);max-height:90vh;overflow:auto;margin:0">
+  <h2 id="editTitle">Editar participante</h2>
+  <p class="muted" id="editNumbers"></p>
+  <label for="editName">Nombre</label><input id="editName" required maxlength="100">
+  <label for="editPhone">Teléfono / WhatsApp</label><input id="editPhone" required maxlength="30">
+  <label for="editStatus">Estado de pago de todos sus números</label><select id="editStatus"><option value="paid">Pagado</option><option value="pending">Pendiente</option><option value="keep">Conservar estados actuales</option></select>
+  <p class="muted">Los números asignados no cambian al editar estos datos.</p>
+  <div class="actions" style="margin-top:16px"><button type="submit">Guardar cambios</button><button id="cancelEdit" class="secondary" type="button">Cancelar</button></div>
+  <div id="editError" class="error" role="alert"></div>
+ </form>
+</div>
 </section>
 </section>
 </main>
@@ -169,25 +195,71 @@ document.querySelector('#ticketForm').addEventListener('submit',async e=>{
  document.querySelector('#saveTicket').disabled=true;
  const {error}=await db.from('tickets').insert(payload);
  if(error){formError.textContent=error.code==='23505'?'Uno o más números ya fueron registrados. Actualiza la cuadrícula e inténtalo de nuevo.':error.message;document.querySelector('#saveTicket').disabled=false;return}
- e.target.reset();document.querySelector('#payment').value='pending';selected.clear();updateSelectionInfo();formError.textContent='¡Números registrados correctamente!';await loadRows();
+ e.target.reset();document.querySelector('#payment').value='paid';selected.clear();updateSelectionInfo();formError.textContent='¡Números registrados correctamente!';await loadRows();
 });
+// Agrupa por nombre y teléfono: no cambia los registros originales de Supabase.
+const groupKey=r=>String(r.buyer_name||'').trim().toLocaleLowerCase('es')+'|'+String(r.phone||'').replace(/\D/g,'');
+function groups(){
+ const map=new Map();
+ for(const r of rows){const key=groupKey(r);if(!map.has(key))map.set(key,{key,name:r.buyer_name,phone:r.phone,items:[]});map.get(key).items.push(r)}
+ return [...map.values()].map(g=>({...g,items:g.items.sort((a,b)=>Number(a.number)-Number(b.number))}));
+}
 function render(){
- const q=document.querySelector('#search').value.toLowerCase(),f=document.querySelector('#filter').value;
+ const q=document.querySelector('#search').value.trim().toLocaleLowerCase('es'),f=document.querySelector('#filter').value;
  const paid=rows.filter(r=>r.payment_status==='paid').length;
  document.querySelector('#registered').textContent=rows.length.toLocaleString('es-DO');
  document.querySelector('#paidCount').textContent=paid.toLocaleString('es-DO');
- document.querySelector('#collected').textContent=money(paid*100);
- const list=rows.filter(r=>{
-  const match=[r.number,pad(Number(r.number)),r.buyer_name,r.phone].some(v=>String(v??'').toLowerCase().includes(q));
-  return match&&(f==='all'||r.payment_status===f);
+ document.querySelector('#collected').textContent=money(rows.filter(r=>r.payment_status==='paid').reduce((sum,r)=>sum+Number(r.price??100),0));
+ const list=groups().filter(g=>{
+  const match=[g.name,g.phone,...g.items.flatMap(r=>[r.number,pad(Number(r.number))])].some(v=>String(v??'').toLocaleLowerCase('es').includes(q));
+  return match&&(f==='all'||g.items.some(r=>r.payment_status===f));
  });
- document.querySelector('#tickets').innerHTML=list.map(r=>`<tr><td><b>${pad(Number(r.number))}</b></td><td>${esc(r.buyer_name)}</td><td>${esc(r.phone)}</td><td><span class="pill ${r.payment_status}">${r.payment_status==='paid'?'Pagado':'Pendiente'}</span></td><td><div class="actions"><button class="secondary" data-toggle="${r.number}">${r.payment_status==='paid'?'Pendiente':'Pagado'}</button><button class="danger" data-delete="${r.number}">Borrar</button></div></td></tr>`).join('');
+ document.querySelector('#tickets').innerHTML=list.map((g,i)=>{
+  const status=g.items.every(r=>r.payment_status==='paid')?'Pagado':g.items.every(r=>r.payment_status==='pending')?'Pendiente':'Mixto';
+  const cls=status==='Pagado'?'paid':status==='Pendiente'?'pending':'';
+  return `<tr><td><b>${esc(g.name)}</b></td><td style="max-width:300px;line-height:1.8">${g.items.map(r=>`<span style="display:inline-block;margin-right:7px">${pad(Number(r.number))}</span>`).join('')}</td><td>${esc(g.phone)}</td><td><span class="pill ${cls}">${status}</span></td><td><div class="actions" style="flex-wrap:wrap"><button class="secondary" data-edit="${i}" type="button">Editar</button><button class="wa-btn" data-whatsapp="${i}" type="button">WhatsApp ↗</button></div></td></tr>`;
+ }).join('');
  document.querySelector('#empty').textContent=list.length?'':'No hay registros para mostrar.';
- document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>togglePayment(Number(b.dataset.toggle)));
- document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteTicket(Number(b.dataset.delete)));
+ document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEdit(list[Number(b.dataset.edit)]));
+ document.querySelectorAll('[data-whatsapp]').forEach(b=>b.onclick=()=>openWhatsApp(list[Number(b.dataset.whatsapp)]));
 }
-async function togglePayment(n){const r=rows.find(x=>Number(x.number)===n);if(!r)return;const {error}=await db.from('tickets').update({payment_status:r.payment_status==='paid'?'pending':'paid'}).eq('number',n);if(error)alert(error.message);else await loadRows()}
-async function deleteTicket(n){if(!confirm('¿Seguro que deseas borrar el registro del número '+pad(n)+'?'))return;const {error}=await db.from('tickets').delete().eq('number',n);if(error)alert(error.message);else await loadRows()}
+function openWhatsApp(g){
+ let phone=String(g.phone||'').replace(/\D/g,'');
+ if(phone.length===10&&/^(809|829|849)/.test(phone))phone='1'+phone;
+ if(phone.length<8||phone.length>15){alert('Revisa el teléfono del comprador.');return}
+ const tickets=g.items.map(r=>pad(Number(r.number))).join(', ');
+ const status=g.items.every(r=>r.payment_status==='paid')?'Pagado':g.items.every(r=>r.payment_status==='pending')?'Pendiente':'Mixto';
+ const message=`Hola ${g.name}, gracias por participar en RIFAS MASTER. 🎟️ Tus números: ${tickets}. Estado de pago: ${status}. ¡Mucha suerte! 🍀`;
+ window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(message),'_blank','noopener,noreferrer');
+}
+let editing=null;
+function openEdit(g){
+ editing={...g,items:[...g.items]};
+ document.querySelector('#editName').value=g.name||'';
+ document.querySelector('#editPhone').value=g.phone||'';
+ document.querySelector('#editStatus').value=g.items.every(r=>r.payment_status==='paid')?'paid':g.items.every(r=>r.payment_status==='pending')?'pending':'keep';
+ document.querySelector('#editNumbers').textContent='Números: '+g.items.map(r=>pad(Number(r.number))).join(', ');
+ document.querySelector('#editError').textContent='';
+ document.querySelector('#editOverlay').classList.remove('hidden');
+ document.querySelector('#editName').focus();
+}
+function closeEdit(){document.querySelector('#editOverlay').classList.add('hidden');editing=null}
+document.querySelector('#cancelEdit').onclick=closeEdit;
+document.querySelector('#editForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(!editing||!db)return;
+ const name=document.querySelector('#editName').value.trim(),phone=document.querySelector('#editPhone').value.trim();
+ const status=document.querySelector('#editStatus').value;
+ const errorBox=document.querySelector('#editError'),submit=e.target.querySelector('[type=submit]');
+ if(!name||!phone){errorBox.textContent='Completa nombre y teléfono.';return}
+ // Actualiza solo los números que pertenecían a este participante al abrir el editor.
+ const nums=editing.items.map(r=>Number(r.number));
+ submit.disabled=true;errorBox.textContent='';
+ const patch={buyer_name:name,phone};if(status!=='keep')patch.payment_status=status;
+ const {data,error}=await db.from('tickets').update(patch).in('number',nums).select('number');
+ if(error){errorBox.textContent='No se pudieron guardar los cambios: '+error.message;submit.disabled=false;return}
+ if(!data||data.length!==nums.length){errorBox.textContent='No se pudo confirmar la actualización de todos los números. Revisa los permisos de Supabase y actualiza los registros.';submit.disabled=false;await loadRows();return}
+ submit.disabled=false;closeEdit();await loadRows();
+});
 document.querySelector('#search').addEventListener('input',render);
 document.querySelector('#filter').addEventListener('change',render);
 document.querySelector('#gridSearch').addEventListener('input',renderGrid);
