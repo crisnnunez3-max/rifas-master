@@ -217,11 +217,29 @@ function render(){
  document.querySelector('#tickets').innerHTML=list.map((g,i)=>{
   const status=g.items.every(r=>r.payment_status==='paid')?'Pagado':g.items.every(r=>r.payment_status==='pending')?'Pendiente':'Mixto';
   const cls=status==='Pagado'?'paid':status==='Pendiente'?'pending':'';
-  return `<tr><td><b>${esc(g.name)}</b></td><td style="max-width:300px;line-height:1.8">${g.items.map(r=>`<span style="display:inline-block;margin-right:7px">${pad(Number(r.number))}</span>`).join('')}</td><td>${esc(g.phone)}</td><td><span class="pill ${cls}">${status}</span></td><td><div class="actions" style="flex-wrap:wrap"><button class="secondary" data-edit="${i}" type="button">Editar</button><button class="wa-btn" data-whatsapp="${i}" type="button">WhatsApp ↗</button></div></td></tr>`;
+  return `<tr><td><b>${esc(g.name)}</b></td><td style="max-width:300px;line-height:1.8">${g.items.map(r=>`<span style="display:inline-block;margin-right:7px">${pad(Number(r.number))}</span>`).join('')}</td><td>${esc(g.phone)}</td><td><span class="pill ${cls}">${status}</span></td><td><div class="actions" style="flex-wrap:wrap"><button class="secondary" data-edit="${i}" type="button">Editar</button><button class="wa-btn" data-whatsapp="${i}" type="button">WhatsApp ↗</button><button class="danger" data-remove="${i}" type="button">Eliminar</button></div></td></tr>`;
  }).join('');
  document.querySelector('#empty').textContent=list.length?'':'No hay registros para mostrar.';
  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEdit(list[Number(b.dataset.edit)]));
  document.querySelectorAll('[data-whatsapp]').forEach(b=>b.onclick=()=>openWhatsApp(list[Number(b.dataset.whatsapp)]));
+ document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>removeParticipant(list[Number(b.dataset.remove)],b));
+}
+async function removeParticipant(g,button){
+ if(!db||!g||!g.items.length)return;
+ const numbers=g.items.map(r=>Number(r.number));
+ const message=`¿Seguro que deseas eliminar a ${g.name} y todos sus ${numbers.length} números (${numbers.map(pad).join(', ')})?\n\nEsta acción no se puede deshacer.`;
+ if(!confirm(message))return;
+ button.disabled=true;
+ try{
+  // Solo borra los números que pertenecen a este grupo en el momento de la confirmación.
+  const {data,error}=await db.from('tickets').delete().in('number',numbers).select('number');
+  if(error)throw error;
+  await loadRows();
+  const remaining=numbers.filter(n=>rows.some(r=>Number(r.number)===n));
+  if(remaining.length)alert('No se pudieron eliminar todos los números. Comprueba los permisos de Supabase y actualiza la página. Restantes: '+remaining.map(pad).join(', '));
+  else alert('Participante eliminado. Sus números están disponibles de nuevo.');
+ }catch(err){alert('No se pudo eliminar al participante: '+err.message);await loadRows()}
+ finally{button.disabled=false}
 }
 function openWhatsApp(g){
  let phone=String(g.phone||'').replace(/\D/g,'');
